@@ -1,0 +1,13 @@
+{
+  "name": "anthropic",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.33.1",
+    "console.table": "^0.10.0",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "oracledb": "^6.7.1"
+  }
+}
