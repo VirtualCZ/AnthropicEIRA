@@ -21,6 +21,8 @@ ANTHROPIC_API_KEY="insert key here"
 ORACLE_USERNAME="insert oracle db username"
 ORACLE_PASSWORD="insert oracle db password"
 ORACLE_CONNSTRING="insert oracle db connection string - example localhost:1521/xepdb1"
+If you use Linux:    ORACLE_LIBRARY_DIR="/path/to/your/thick/client"
+If you use Windows:  ORACLE_LIBRARY_DIR="C:\\Path\\to\\your\\thick\\client"
 ```
 
 ## Running the Project
