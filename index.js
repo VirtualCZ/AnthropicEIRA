@@ -16,8 +16,7 @@ const tableLogFile = path.join(logDir, `table-${Date.now()}.log`);
 
 // Oracle instant client setup
 oracledb.initOracleClient({
-  libDir:
-    "C:\\Users\\VirtualC\\Downloads\\EIRA\\instantclient-basic-windows.x64-23.6.0.24.10\\instantclient_23_6",
+  libDir: process.env.ORACLE_LIBRARY_DIR
 });
 
 // Database configuration
@@ -58,7 +57,8 @@ const dbSelect = async (connection) => {
     select event_id, event_subject, event_desc
     from event where state_id=96719 and sys_agenda_id=3907041 and event_template=0
     and not exists (select 1 from event_ai where event.event_id=event_ai.event_id)
-    and rownum <= 5 evcateg_id>393
+    and rownum <= 5
+    and evcateg_id>393 
     and evcateg_id<443
   `;
   try {
