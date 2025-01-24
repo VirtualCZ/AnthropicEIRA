@@ -58,7 +58,8 @@ const dbSelect = async (connection) => {
     select event_id, event_subject, event_desc
     from event where state_id=96719 and sys_agenda_id=3907041 and event_template=0
     and not exists (select 1 from event_ai where event.event_id=event_ai.event_id)
-    and rownum <= 5
+    and rownum <= 5 evcateg_id>393
+    and evcateg_id<443
   `;
   try {
     console.log("Executing query:", dbSelectQuery);
@@ -82,11 +83,15 @@ const dbWrite = async (connection, event_id, response, priority) => {
   try {
     console.log(`Inserting EVENT_AI entry for EVENT_ID ${event_id}`);
     log(`Inserting EVENT_AI entry for EVENT_ID ${event_id}`);
-    await connection.execute(insertQuery, {
-      event_id,
-      response,
-      priority: '"' + priority + '"',
-    }, { autoCommit: true });
+    await connection.execute(
+      insertQuery,
+      {
+        event_id,
+        response,
+        priority: '"' + priority + '"',
+      },
+      { autoCommit: true }
+    );
     console.log(`Inserted EVENT_AI entry for EVENT_ID ${event_id}`);
     log(`Inserted EVENT_AI entry for EVENT_ID ${event_id}`);
   } catch (err) {
