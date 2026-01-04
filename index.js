@@ -100,6 +100,46 @@ const dbWrite = async (connection, event_id, response, priority) => {
   }
 };
 
+// Helper function to extract JSON from AI response
+const extractJSON = (text) => {
+  // Try to find JSON in markdown code blocks first
+  const jsonBlockMatch = text.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
+  if (jsonBlockMatch) {
+    return jsonBlockMatch[1];
+  }
+  
+  // Try to find JSON object directly
+  const jsonMatch = text.match(/\{[\s\S]*?\}/);
+  if (jsonMatch) {
+    return jsonMatch[0];
+  }
+  
+  return null;
+};
+
+// Helper function to truncate string to fit database column (using byte length for Oracle)
+const truncateString = (str, maxBytes) => {
+  if (!str) {
+    return str;
+  }
+  // Oracle VARCHAR2 uses byte semantics, so we need to check byte length
+  const byteLength = Buffer.byteLength(str, 'utf8');
+  if (byteLength <= maxBytes) {
+    return str;
+  }
+  
+  // Truncate character by character until we're under the byte limit
+  let result = '';
+  for (let i = 0; i < str.length; i++) {
+    const testStr = result + str[i];
+    if (Buffer.byteLength(testStr, 'utf8') > maxBytes) {
+      break;
+    }
+    result = testStr;
+  }
+  return result;
+};
+
 // AI prompt and response handling
 const promptAI = async (EVENT_SUBJECT, EVENT_DESC) => {
   let prompt = `Popis nahlášeného incidentu je: ${EVENT_SUBJECT};`;
@@ -110,7 +150,7 @@ const promptAI = async (EVENT_SUBJECT, EVENT_DESC) => {
 
   try {
     const response = await anthropic.messages.create({
-      model: "claude-3-5-sonnet-20241022",
+      model: "claude-haiku-4-5-20251001",
       max_tokens: 1024,
       messages: [{ role: "user", content: prompt }],
     });
@@ -157,14 +197,34 @@ const processTables = async () => {
 
       let priority = "1"; // Default priority
       try {
-        const parsedResponse = JSON.parse(responseContent);
-        priority = parsedResponse?.priorita || "1";
+        // Extract JSON from the response (may be wrapped in markdown code blocks)
+        const jsonString = extractJSON(responseContent);
+        if (jsonString) {
+          const parsedResponse = JSON.parse(jsonString);
+          priority = parsedResponse?.priorita || "1";
+        } else {
+          console.warn("Could not extract JSON from AI response, using default priority");
+          log(`Could not extract JSON from AI response for EVENT_ID ${EVENT_ID}, using default priority`);
+        }
       } catch (error) {
         console.error("Error parsing AI response:", error);
         log(`Error parsing AI response: ${error.message}`);
       }
 
-      await dbWrite(connection, EVENT_ID, responseContent, priority);
+      // Truncate response to fit database column (200 bytes max - Oracle uses byte semantics)
+      let truncatedResponse = truncateString(responseContent, 200);
+      // Double-check byte length before inserting
+      const byteLength = truncatedResponse ? Buffer.byteLength(truncatedResponse, 'utf8') : 0;
+      if (byteLength > 200) {
+        console.warn(`Response still too long (${byteLength} bytes), forcing truncation`);
+        log(`Response still too long (${byteLength} bytes) for EVENT_ID ${EVENT_ID}, forcing truncation`);
+        // Force truncate byte by byte
+        truncatedResponse = truncateString(truncatedResponse, 200);
+      }
+      const finalByteLength = truncatedResponse ? Buffer.byteLength(truncatedResponse, 'utf8') : 0;
+      console.log(`Response: ${responseContent.length} chars (${Buffer.byteLength(responseContent, 'utf8')} bytes) -> ${truncatedResponse ? truncatedResponse.length : 0} chars (${finalByteLength} bytes)`);
+      log(`Response for EVENT_ID ${EVENT_ID}: ${responseContent.length} chars (${Buffer.byteLength(responseContent, 'utf8')} bytes) -> ${truncatedResponse ? truncatedResponse.length : 0} chars (${finalByteLength} bytes)`);
+      await dbWrite(connection, EVENT_ID, truncatedResponse, priority);
     }
   } catch (err) {
     console.error("Error occurred:", err);
